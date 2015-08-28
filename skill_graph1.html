@@ -77,13 +77,10 @@ d3.tsv("skilldata.tsv", function(error, data) {
     g = data;
     data.forEach(function(el, j){
       if (Date.parse(el.date) === Date.parse(parseDate(notes[i].date))) {
-        console.log(j)
         data[j].note = notes[i].html;
       }
     })  
   };
-
-  console.log(data)
 
   x.domain(d3.extent(data, function(d) { return d.date; }));
   y.domain(d3.extent(data, function(d) { return d.skill; }));
@@ -108,30 +105,40 @@ d3.tsv("skilldata.tsv", function(error, data) {
       .text("Global NWP Index");
 
 
-function getSmoothInterpolationFromPoint(d) {
-  return function(t) {
-      var index = d.length * t;
-      var flooredX = Math.floor(index);
-      var weight = index - flooredX;
-      var interpolatedLine = d.slice(0, flooredX+1);
-      
-      if(flooredX < d.length-1.0) {
-          var weightedLineAverage = d[flooredX].skill * (1-weight) + d[flooredX+1].skill * weight;
-          interpolatedLine.push({"date": tfrompt(index),
-                                 "skill": weightedLineAverage});
-      }
-      return lineFunction(interpolatedLine);
-    }
+  function makeInterpFn(startFraction){
+    return function getInterp(d) {
+      return function(t) {
+          var t = startFraction + (t / (1.0-startFraction));
+          var index = d.length * t;
+          var flooredX = Math.floor(index);
+          var weight = index - flooredX;
+          var interpolatedLine = d.slice(0, flooredX+1);
+          
+          if(flooredX < d.length-1.0) {
+              var weightedLineAverage = d[flooredX].skill * (1-weight) + d[flooredX+1].skill * weight;
+              interpolatedLine.push({"date": tfrompt(index),
+                                     "skill": weightedLineAverage});
+          }
+          return lineFunction(interpolatedLine);
+        }
+    };
   }
 
-  var skillline = svg.append("path")
+  var drawBetweenPoints = function(p, q){
+    d3.select("#skill").remove();
+
+    var skillline = svg.append("path")
       .attr("class", "line")
       .attr("id", "skill")
-      .datum(data)
-        .attr('d', function(d) { return lineFunction(d[0]) })
+      .datum(data.slice(0, q))
+        .attr('d', function(d) { return lineFunction(d.slice(0, p)) })
           .transition()
-          .duration(4000)
-          .attrTween("d", getSmoothInterpolationFromPoint)
+          .duration((q-p)*100)
+          .attrTween("d", makeInterpFn(p/q))
+  };
+  drawBetweenPoints(10, 25);
+
+  
 });
 
 </script>
