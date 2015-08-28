@@ -80,6 +80,10 @@ d3.tsv("skilldata.tsv", function(error, data) {
                   .scale()
                   .range([0, data.length-1.0])
                   .domain(d3.extent(data, function(d) { return d.date; }));
+  var tfrompt = d3.time
+                  .scale()
+                  .range(d3.extent(data, function(d) { return d.date; }))
+                  .domain([0, data.length-1.0]);
 
   svg.append("g")
       .attr("class", "x axis")
@@ -115,40 +119,34 @@ d3.tsv("skilldata.tsv", function(error, data) {
                                    "skill": weightedLineAverage});
         }
         return lineFunction(interpolatedLine);
-      }
-  };
-
+    }
+  }
 
   var addedNotes = [];
   var updateNotes = function(addedNotes){
-    svg.selectAll("note")
-      .data(addedNotes)
-      .enter()
-        .append("path")
+  var note = svg.selectAll("note").data(addedNotes).enter();
+  note.append("path")
           .attr("class", "line")
           .attr("id", "skill")
           .attr("d", function(){lineFunction(data.slice(0,1))})
         .transition()
-          .duration(20000)
+          .duration(2000)
           .ease("linear")
           .attrTween('d', function(d, i){return getInterp(d, i)})
-        // .each("end", function(d){
-        //   d3.select(this)
-        //     .append("circle")
-        //     .attr("cx", function(d){return x(d.date)})
-        //     .attr("cy", function(d){return y(data[ptfromt(d.date)].skill)})
-        //     .attr("r", 10)
-          // .transition()
-          //   .attr("cx", function(d){return x(d.date)})
-          //   .attr("cy", function(d){return y(d.skill)})
-          //   .attr("r", 5)
-        // })
+        .each("end", function(d){
+          console.log("hi")
+          note.append("circle")
+            .attr("cx", function(d){return x(d.date)})
+            .attr("cy", function(d){return y(data[Math.floor(ptfromt(d.date))].skill)})
+            .attr("r", 0)
+          .transition()
+            .attr("r", 5)
+        })
+  
   }
 
   addedNotes.push(notes[0]);
   updateNotes(addedNotes);
-
-  
 });
 
 </script>
