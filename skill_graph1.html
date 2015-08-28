@@ -60,6 +60,8 @@ var svg = d3.select("body").append("svg")
     .append("g")
     .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
+var g;
+
 d3.tsv("skilldata.tsv", function(error, data) {
   if (error) throw error;
   
@@ -67,7 +69,21 @@ d3.tsv("skilldata.tsv", function(error, data) {
     d.date = parseDate(d.date);
     d.skill = +d.nwpindex;
     delete d.nwpindex;
+    d.note = null;
   });
+  var notes = [{"date": "201208", "html": "<p>some stuff about things</p>"},
+               {"date": "201302", "html": "<p>some other stuff</p>"}]
+  for (var i = 0; i < notes.length; i++){
+    g = data;
+    data.forEach(function(el, j){
+      if (Date.parse(el.date) === Date.parse(parseDate(notes[i].date))) {
+        console.log(j)
+        data[j].note = notes[i].html;
+      }
+    })  
+  };
+
+  console.log(data)
 
   x.domain(d3.extent(data, function(d) { return d.date; }));
   y.domain(d3.extent(data, function(d) { return d.skill; }));
