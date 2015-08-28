@@ -71,23 +71,15 @@ d3.tsv("skilldata.tsv", function(error, data) {
     delete d.nwpindex;
     d.note = null;
   });
-  var notes = [{"date": "201208", "html": "<p>some stuff about things</p>"},
-               {"date": "201302", "html": "<p>some other stuff</p>"}]
-  for (var i = 0; i < notes.length; i++){
-    g = data;
-    data.forEach(function(el, j){
-      if (Date.parse(el.date) === Date.parse(parseDate(notes[i].date))) {
-        data[j].note = notes[i].html;
-      }
-    })  
-  };
+  var notes = [{"date": parseDate("201208"), "html": "<p>some stuff about things</p>"},
+               {"date": parseDate("201302"), "html": "<p>some other stuff</p>"}]
 
   x.domain(d3.extent(data, function(d) { return d.date; }));
   y.domain(d3.extent(data, function(d) { return d.skill; }));
   var tfrompt = d3.time
-                    .scale()
-                    .range(d3.extent(data, function(d) { return d.date; }))
-                    .domain([0, data.length-1.0]);
+                  .scale()
+                  .range(d3.extent(data, function(d) { return d.date; }))
+                  .domain([0, data.length-1.0]);
 
   svg.append("g")
       .attr("class", "x axis")
@@ -105,10 +97,12 @@ d3.tsv("skilldata.tsv", function(error, data) {
       .text("Global NWP Index");
 
 
-  function makeInterpFn(startFraction){
+  function makeInterpFn(d, i){
+    var lastNote = addedNotes[Math.max(i-1, 0)];
+    var thisData = data.slice(tfrompt.invert(lastNote.date), tfrompt.invert(d.date));
+
     return function getInterp(d) {
       return function(t) {
-          var t = startFraction + (t / (1.0-startFraction));
           var index = d.length * t;
           var flooredX = Math.floor(index);
           var weight = index - flooredX;
@@ -124,19 +118,31 @@ d3.tsv("skilldata.tsv", function(error, data) {
     };
   }
 
-  var drawBetweenPoints = function(p, q){
-    d3.select("#skill").remove();
+  var addedNotes = [{"date": data[0].date}];
+  d3.selectAll("note")
+    .data(addedNotes)
+    .enter()
+      .append("path")
+        .attr("class", "line")
+        .attr("id", "skill")
+        .attr("d", function(){console.log(lineFunction(data.slice(0, 2)))})
+      .transiton()
+        .duration(2000)
+        .attrTween('d', function(d, i){ return makeInterpFn(d, i)})
+      .each("end", function(d){
+        d3.select(this)
+          .append("circle")
+          .attr("cx", function(d){return x(d.date)})
+          .attr("cy", function(d){return y(data[tfrompt.invert(d.date)].skill)})
+          .attr("r", 0)
+        .transition()
+          .attr("cx", function(d){return x(d.date)})
+          .attr("cy", function(d){return y(d.skill)})
+          .attr("r", 5)
+      })
 
-    var skillline = svg.append("path")
-      .attr("class", "line")
-      .attr("id", "skill")
-      .datum(data.slice(0, q))
-        .attr('d', function(d) { return lineFunction(d.slice(0, p)) })
-          .transition()
-          .duration((q-p)*100)
-          .attrTween("d", makeInterpFn(p/q))
-  };
-  drawBetweenPoints(10, 25);
+  addedNotes.push(notes[0])
+  d3.selectAll("note").data(addedNotes)
 
   
 });
