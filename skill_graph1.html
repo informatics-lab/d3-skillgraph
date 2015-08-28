@@ -22,6 +22,40 @@
       .note.point {
         fill: steelblue;
       }
+
+      #tooltip{
+  font-weight: 14px;
+  font-family: verdana, sans-serif;
+  transition: opacity 0.25s;
+  opacity: 0;
+  position: fixed;
+  color: white;
+  background-color: black;
+  border: 2px solid #333;
+  border-radius: 7px;
+  padding: 5px;
+  z-index: 1000;
+
+  /* Permalink - use to edit and share this gradient: http://colorzilla.com/gradient-editor/#45484d+0,000000+100;Black+3D+%231 */
+  background: #45484d; /* Old browsers */
+  background: -moz-linear-gradient(top,  #45484d 0%, #000000 100%); /* FF3.6+ */
+  background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,#45484d), color-stop(100%,#000000)); /* Chrome,Safari4+ */
+  background: -webkit-linear-gradient(top,  #45484d 0%,#000000 100%); /* Chrome10+,Safari5.1+ */
+  background: -o-linear-gradient(top,  #45484d 0%,#000000 100%); /* Opera 11.10+ */
+  background: -ms-linear-gradient(top,  #45484d 0%,#000000 100%); /* IE10+ */
+  background: linear-gradient(to bottom,  #45484d 0%,#000000 100%); /* W3C */
+  filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#45484d', endColorstr='#000000',GradientType=0 ); /* IE6-9 */
+  }
+
+  #tooltip h4 {
+    margin-top: 0px;
+    margin-bottom: 10px;
+  }
+
+  #tooltip.show{
+    transition: opacity 0.25s;
+    opacity: 1;
+}
 </style>
 
 <html lang="en">
@@ -106,10 +140,13 @@ d3.tsv("skilldata.tsv", function(error, data) {
       .style("text-anchor", "end")
       .text("Global NWP Index");
 
+  tooltip = d3.select("body")
+                  .append("div") 
+                  .attr("id", "tooltip");
+
   function getInterp(d, i) {
     var lastNote = i > 0 ? addedNotes[i-1] : {"date": data[0].date};
-    console.log("i", i);
-    var thisData = data.slice(ptfromt(lastNote.date), ptfromt(d.date));
+    var thisData = data.slice(ptfromt(lastNote.date), ptfromt(d.date)+1.0);
     var tfrompt = d3.time
                   .scale()
                   .range(d3.extent(thisData, function(d) { return d.date; }))
@@ -137,7 +174,6 @@ d3.tsv("skilldata.tsv", function(error, data) {
         .attr("d", function(){lineFunction(data.slice(0,1))})
       .transition()
         .duration(2000)
-        .ease("linear")
         .attrTween('d', function(d, i){return getInterp(d, i)})
       .each("end", function(d){
         note.append("circle")
@@ -148,6 +184,19 @@ d3.tsv("skilldata.tsv", function(error, data) {
           .on("click", function(d, i){
             if ((i+1) < notes.length){addedNotes.push(notes[i+1])};
             updateNotes(addedNotes)
+          })
+          .on("mouseover", function(d){
+            tooltip.html(d.html)
+                    .style("left", (d3.event.pageX) + 7 + "px")          
+                    .style("top", (d3.event.pageY) + 26 + "px");
+            tooltip.classed('show', true)
+                    .style("display", "block");
+            d3.select(this).classed("active", true);
+          })
+          .on("mouseout", function(d){
+              tooltip.classed('show',false)
+                        .style("display", "none");
+              d3.select(this).classed("active", false);
           })
         .transition()
           .attr("r", 5)
