@@ -1,10 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>Global NWP Index</title>
-    <script type="text/javascript" src="../d3/d3.v3.js"></script>
-    <style type="text/css">
+<style type="text/css">
       .axis path,
       .axis line {
         fill: none;
@@ -21,7 +16,13 @@
         stroke: steelblue;
         stroke-width: 1.5px;
       }
-    </style>
+</style>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Global NWP Index</title>
+    <script src="./d3.js"></script>
   </head>
 
 
@@ -34,6 +35,7 @@ var margin = {top: 20, right: 20, bottom: 30, left: 50},
 
 var parseDate = d3.time.format("%Y%m").parse;
 
+// domains for x and y being set after data load
 var x = d3.time.scale()
     .range([0, width]);
 
@@ -48,9 +50,9 @@ var yAxis = d3.svg.axis()
     .scale(y)
     .orient("left");
 
-var line = d3.svg.line()
+var lineFunction = d3.svg.line()
     .x(function(d) { return x(d.date); })
-    .y(function(d) { return y(d.nwpindex); });
+    .y(function(d) { return y(d.skill); });
 
 var svg = d3.select("body").append("svg")
     .attr("width", width + margin.left + margin.right)
@@ -63,11 +65,16 @@ d3.tsv("skilldata.tsv", function(error, data) {
   
   data.forEach(function(d) {
     d.date = parseDate(d.date);
-    d.nwpindex = +d.nwpindex;
+    d.skill = +d.nwpindex;
+    delete d.nwpindex;
   });
 
   x.domain(d3.extent(data, function(d) { return d.date; }));
-  y.domain(d3.extent(data, function(d) { return d.nwpindex; }));
+  y.domain(d3.extent(data, function(d) { return d.skill; }));
+  var tfrompt = d3.time
+                    .scale()
+                    .range(d3.extent(data, function(d) { return d.date; }))
+                    .domain([0, data.length-1.0]);
 
   svg.append("g")
       .attr("class", "x axis")
@@ -84,11 +91,31 @@ d3.tsv("skilldata.tsv", function(error, data) {
       .style("text-anchor", "end")
       .text("Global NWP Index");
 
-  svg.append("path")
-      .datum(data)
-      .attr("class", "line")
-      .attr("d", line);
 
+function getSmoothInterpolationFromPoint(d) {
+  return function(t) {
+      var index = d.length * t;
+      var flooredX = Math.floor(index);
+      var weight = index - flooredX;
+      var interpolatedLine = d.slice(0, flooredX+1);
+      
+      if(flooredX < d.length-1.0) {
+          var weightedLineAverage = d[flooredX].skill * (1-weight) + d[flooredX+1].skill * weight;
+          interpolatedLine.push({"date": tfrompt(index),
+                                 "skill": weightedLineAverage});
+      }
+      return lineFunction(interpolatedLine);
+    }
+  }
+
+  var skillline = svg.append("path")
+      .attr("class", "line")
+      .attr("id", "skill")
+      .datum(data)
+        .attr('d', function(d) { return lineFunction(d[0]) })
+          .transition()
+          .duration(4000)
+          .attrTween("d", getSmoothInterpolationFromPoint)
 });
 
 </script>
