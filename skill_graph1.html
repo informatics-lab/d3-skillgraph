@@ -11,15 +11,14 @@
       }
 
       .note {
+        fill: steelblue;
         stroke: steelblue;
         stroke-width: 1.5px;
       }
-      .note.skill {
+      #skill {
+        stroke: steelblue;
+        stroke-width: 1.5px;
         fill: none;
-      }
-
-      .note.point {
-        fill: steelblue;
       }
 
       #tooltip {
@@ -101,8 +100,6 @@ var svg = d3.select("body").append("svg")
     .append("g")
     .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-var g;
-var g2;
 d3.tsv("skilldata.tsv", function(error, data) {
   if (error) throw error;
   
@@ -112,19 +109,19 @@ d3.tsv("skilldata.tsv", function(error, data) {
     delete d.nwpindex;
     d.note = null;
   });
-  var notes = [{"date": parseDate("201208"), "html": "<p>some stuff abou  t things</p>"},
+
+  var skill = data;
+  var notes = [{"date": parseDate("201208"), "html": "<p>some stuff about things</p>"},
                {"date": parseDate("201302"), "html": "<p>some other stuff</p>"}]
 
-  x.domain(d3.extent(data, function(d) { return d.date; }));
-  y.domain(d3.extent(data, function(d) { return d.skill; }));
+  
+  x.domain(d3.extent(skill, function(d) { return d.date; }));
+  y.domain(d3.extent(skill, function(d) { return d.skill; }));
   var ptfromt = d3.time
                   .scale()
-                  .range([0, data.length-1.0])
-                  .domain(d3.extent(data, function(d) { return d.date; }));
-  var tfrompt = d3.time
-                  .scale()
-                  .range(d3.extent(data, function(d) { return d.date; }))
-                  .domain([0, data.length-1.0]);
+                  .range([0, skill.length-1.0])
+                  .domain(d3.extent(skill, function(d) { return d.date; }));
+
 
   svg.append("g")
       .attr("class", "x axis")
@@ -145,32 +142,41 @@ d3.tsv("skilldata.tsv", function(error, data) {
                   .append("div") 
                   .attr("id", "tooltip");
 
-  function getInterp(d, i) {
-    var lastNote = i > 0 ? addedNotes[i-1] : {"date": data[0].date};
-    var thisData = data.slice(ptfromt(lastNote.date), ptfromt(d.date)+1.0);
+  function getInterp(d, i, notes) {
     var tfrompt = d3.time
                   .scale()
-                  .range(d3.extent(thisData, function(d) { return d.date; }))
-                  .domain([0, thisData.length-1.0]);
+                  .range(d3.extent(d, function(d) { return d.date; }))
+                  .domain([0, d.length-1.0]);
+
+    var displayedNotes = [];
 
     return function(t) {
-        var index = thisData.length * t;
+        var index = d.length * t;
         var flooredX = Math.floor(index);
         var weight = index - flooredX;
-        var interpolatedLine = thisData.slice(0, flooredX+1);
-        if(flooredX < thisData.length-1.0) {
-            var weightedLineAverage = thisData[flooredX].skill * (1-weight) + thisData[flooredX+1].skill * weight;
+        var interpolatedLine = d.slice(0, flooredX+1);
+
+        notes.forEach(function(el){
+          if (el.date.getTime() === interpolatedLine[interpolatedLine.length-1].date.getTime()){
+            displayedNotes.push(el);
+            updateNotes(d, displayedNotes);
+          }
+        });
+
+        if(flooredX < d.length-1.0) {
+            var weightedLineAverage = d[flooredX].skill * (1-weight) + d[flooredX+1].skill * weight;
             interpolatedLine.push({"date": tfrompt(index),
                                    "skill": weightedLineAverage});
         }
+
         return lineFunction(interpolatedLine);
     }
   }
 
-  var showTooltip = function(d){
+  var showTooltip = function(d, x, y){
         tooltip.html(d.html)
-                .style("left", (d3.event.pageX) + 7 + "px")          
-                .style("top", (d3.event.pageY) + 26 + "px");
+                .style("left", x + 7 + "px")          
+                .style("top", y + 26 + "px");
         tooltip.classed('show', true)
                 .style("display", "block");
       };
@@ -179,36 +185,53 @@ d3.tsv("skilldata.tsv", function(error, data) {
         d3.select(this).classed("active", false);
       };
 
-  var addedNotes = [];
-  var updateNotes = function(addedNotes){
-  var note = svg.selectAll(".note").data(addedNotes, function(d){return d.date}).enter();
-  note.append("path")
-        .attr("class", "note skill")
-        .attr("d", function(){lineFunction(data.slice(0,1))})
-      .transition()
-        .duration(2000)
-        .ease("linear")
-        .attrTween('d', function(d, i){return getInterp(d, i)})
-      .each("end", function(d){
-        note.append("circle")
-          .attr("class", "note point")
+  var updateAxes = function(skill){
+      x.domain(d3.extent(skill, function(d) { return d.date; }));
+      svg.select(".x.axis")
+              .transition().duration(1500).ease("sin-in-out")
+              .call(xAxis); 
+      y.domain(d3.extent(skill, function(d) { return d.skill; }));
+      svg.select(".y.axis")
+              .transition().duration(1500).ease("sin-in-out")
+              .call(yAxis); 
+  }
+
+  var enterSkill = function(skill, notes){
+    svg.append("path")
+          .attr("id", "skill")
+          .datum(skill)
+          .attr("d", function(){lineFunction(data.slice(0,1))})
+        .transition()
+          .duration(2000)
+          .ease("linear")
+          .attrTween('d', function(d, i){return getInterp(d, i, notes)})
+  }
+
+  var updateNotes = function(skill, notes){
+    svg.selectAll(".note").data(notes, function(d){return d.date})
+      .enter()
+        .append("circle")
+          .attr("class", "note")
           .attr("cx", function(d){return x(d.date)})
-          .attr("cy", function(d){return y(data[Math.floor(ptfromt(d.date))].skill)})
+          .attr("cy", function(d){return y(skill[Math.floor(ptfromt(d.date))].skill)})
           .attr("r", 0)
-          .on("click", function(d, i){
-            if ((i+1) < notes.length){addedNotes.push(notes[i+1])};
-            updateNotes(addedNotes)
-          })
-          .on("mouseover", function(d){return showTooltip(d)})
+          .on("mouseover", function(d){return showTooltip(d, d3.event.pageX, d3.event.pageY)})
           .on("mouseout", hideTooltip)
         .transition()
           .attr("r", 5)
-      })
-  
   }
 
-  addedNotes.push(notes[0]);
-  updateNotes(addedNotes);
+  var init = function(skill, notes){
+    updateAxes(skill)
+    enterSkill(skill, notes);
+  };
+
+  // var update = function(skill, notes){
+  //   updateAxes(skill)
+  //   updateSkill(skill)
+  //   updateNotes(notes)
+  // };
+  init(skill, notes);
 });
 
 </script>
