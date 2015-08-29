@@ -196,17 +196,23 @@ d3.tsv("skilldata.tsv", function(error, data) {
           .attr("cy", function(d){return y(data[Math.floor(ptfromt(d.date))].skill)})
           .attr("r", 0)
           .on("click", function(d, i){
+            var nextPt;
             if ((i+1) < notes.length){
-              addedNotes.push(notes[i+1]);
+              nextPt = notes[i+1];
             }
             else {
-              addedNotes.push({"date": data[data.length - 1].date,
-                                "html": null,
-                                "isEnd": true });
+              nextPt = {
+                        "date": data[data.length - 1].date,
+                        "html": null,
+                        "isEnd": true
+                        };
             }
-            updateNotes(addedNotes)
+            if (addedNotes.length <= notes.length){
+              addedNotes.push(nextPt);
+            }
+            updateNotes(addedNotes);
           })
-          .on("mouseover", function(d){return showTooltip(d)})
+          .on("mouseover", function(d){if (!d.isEnd) {return showTooltip(d)}})
           .on("mouseout", hideTooltip)
         .transition()
           .attr("r", function(d){return (d.isEnd ? 0 : 5)})
