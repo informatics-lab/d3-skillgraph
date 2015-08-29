@@ -67,6 +67,8 @@
 <body>
 <script type="text/javascript">
 
+var lineDuration = 5000;
+
 var margin = {top: 20, right: 20, bottom: 30, left: 50},
     width = 960 - margin.left - margin.right,
     height = 500 - margin.top - margin.bottom;
@@ -200,11 +202,17 @@ d3.tsv("skilldata.tsv", function(error, data) {
     svg.append("path")
           .attr("id", "skill")
           .datum(skill)
-          .attr("d", function(){lineFunction(data.slice(0,1))})
+          .attr("d", "")
         .transition()
-          .duration(2000)
+          .duration(lineDuration)
           .ease("linear")
           .attrTween('d', function(d, i){return getInterp(d, i, notes)})
+  }
+
+  var updateSkill = function(skill){
+    svg.select("#skill")
+        .datum(skill)
+        .attr("d")
   }
 
   var updateNotes = function(skill, notes){
@@ -217,6 +225,7 @@ d3.tsv("skilldata.tsv", function(error, data) {
           .attr("r", 0)
           .on("mouseover", function(d){return showTooltip(d, d3.event.pageX, d3.event.pageY)})
           .on("mouseout", hideTooltip)
+          .each(function(d){showTooltip(d, x(d.date), y(skill[Math.floor(ptfromt(d.date))].skill))})
         .transition()
           .attr("r", 5)
   }
@@ -226,11 +235,12 @@ d3.tsv("skilldata.tsv", function(error, data) {
     enterSkill(skill, notes);
   };
 
-  // var update = function(skill, notes){
-  //   updateAxes(skill)
-  //   updateSkill(skill)
-  //   updateNotes(notes)
-  // };
+  var update = function(skill, notes){
+    updateAxes(skill)
+    updateSkill(skill)
+    updateNotes(notes)
+  };
+
   init(skill, notes);
 });
 
