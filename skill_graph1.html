@@ -186,7 +186,10 @@ d3.tsv("skilldata.tsv", function(error, data) {
         .attr("class", "note skill")
         .attr("d", function(){lineFunction(data.slice(0,1))})
       .transition()
-        .duration(2000)
+        .duration(function(d,i){
+          var prevDate = addedNotes[i-1] ? addedNotes[i-1].date : data[0].date;
+          return (ptfromt(d.date) - ptfromt(prevDate))*80;
+        })
         .ease("linear")
         .attrTween('d', function(d, i){return getInterp(d, i)})
       .each("end", function(d){
