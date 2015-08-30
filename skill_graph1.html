@@ -27,7 +27,7 @@
         font-family: verdana, sans-serif;
         transition: opacity 0.25s;
         opacity: 0;
-        position: fixed;
+        position: absolute;
         color: white;
         background-color: black;
         border: 2px solid #333;
@@ -113,7 +113,8 @@ d3.tsv("skilldata.tsv", function(error, data) {
     d.note = null;
   });
   var notes = [{"date": parseDate("201208"), "html": "<p>some stuff abou  t things</p>"},
-               {"date": parseDate("201302"), "html": "<p>some other stuff</p>"}]
+               {"date": parseDate("201302"), "html": "<p>some other stuff</p>"},
+               {"date": parseDate("201407"), "html": "<p>ENDGame introduced</p>"}]
 
   x.domain(d3.extent(data, function(d) { return d.date; }));
   y.domain(d3.extent(data, function(d) { return d.skill; }));
