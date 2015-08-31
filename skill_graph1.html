@@ -67,7 +67,7 @@
 <body>
 <script type="text/javascript">
 
-var lineDuration = 1000;
+var lineDuration = 4000;
 
 var margin = {top: 20, right: 20, bottom: 30, left: 50},
     width = 960 - margin.left - margin.right,
@@ -84,7 +84,7 @@ var y = d3.scale.linear()
 
 var xAxis = d3.svg.axis()
     .scale(x)
-    .ticks(d3.time.year, 1)
+    // .ticks(d3.time.year, 1)
     .orient("bottom");
 
 var yAxis = d3.svg.axis()
@@ -141,7 +141,7 @@ d3.tsv("skilldata.tsv", function(error, data) {
       .style("text-anchor", "end")
       .text("Forcast accuracy");
 
-  function getInterp(d, i, notes) {
+  function rollingLine(d, i, notes) {
     var tfrompt = d3.time
                   .scale()
                   .range(d3.extent(d, function(d) { return d.date; }))
@@ -156,7 +156,7 @@ d3.tsv("skilldata.tsv", function(error, data) {
         var interpolatedLine = d.slice(0, flooredX+1);
 
         notes.forEach(function(el){
-          if (el.date.getTime() === interpolatedLine[interpolatedLine.length-1].date.getTime()){
+          if (Date.parse(el.date) === Date.parse(interpolatedLine[interpolatedLine.length-1].date)){
             displayedNotes.push(el);
             updateNotes(d, displayedNotes);
           }
@@ -204,8 +204,8 @@ d3.tsv("skilldata.tsv", function(error, data) {
           .attr("d", "")
         .transition()
           .duration(lineDuration)
-          .ease("sin-in-out")
-          .attrTween('d', function(d, i){return getInterp(d, i, notes)})
+          .ease("linear")
+          .attrTween('d', function(d, i){return rollingLine(d, i, notes)})
           .each("end", function(){
             tooltips=[];
             updateTooltips(tooltips)
@@ -222,13 +222,11 @@ d3.tsv("skilldata.tsv", function(error, data) {
   };
 
   var update = function(skill, notes){
-    var removeNotesTrans = svg.transition();
+    var removeNotesTrans = svg.transition().duration(500);
     removeNotesTrans.selectAll(".note")
-                      .duration(500)
                       .attr("r", 0)
     var zeroLineTrans = removeNotesTrans.transition()
     zeroLineTrans
-          .transition()
           .ease("sin-in-out")
           .select("#skill")
           .attr("d", function(d){
@@ -245,18 +243,29 @@ d3.tsv("skilldata.tsv", function(error, data) {
                   .transition()
                   .ease("sin-in-out")
                   .call(yAxis);
+    updateAxesTrans
+        .each("end", function(d){
+          d3.select("#skill")
+            .datum(skill)
+            .attr("d", function(d){
+              return lineFunction(d.map(function(el) {return {"date": el.date, "skill": y.domain()[0]};}))
+            })
+          d3.selectAll(".note")
+            .attr("cx", function(d){return x(d.date)})
+            .attr("cy", function(d){
+              if (Math.floor(ptfromt(d.date)) < skill.length){
+                return y(skill[Math.floor(ptfromt(d.date))].skill);
+              }else{
+                return "";
+              }
+            })
+          })
     var updateLineTrans = updateAxesTrans.transition()
-    d3.select("#skill").attr("d", function(skill){
-            return lineFunction(
-              skill.map(function(el){return {"date": el.date, "skill": y.domain()[0]};})
-            )})
     updateLineTrans.select("#skill")
                       .ease("sin-in-out")
                       .attr("d", lineFunction(skill))
     var updateNotesTrans = updateLineTrans.transition()
-    updateNotesTrans.selectAll(".notes")
-          .attr("cx", function(d){return x(d.date)})
-          .attr("cy", function(d){return y(skill[Math.floor(ptfromt(d.date))].skill)})
+    updateNotesTrans.selectAll(".note")
           .attr("r", 5)
   };
 
@@ -309,7 +318,8 @@ d3.tsv("skilldata.tsv", function(error, data) {
               .on("click", function(d){
                 update(d.skill, notes);
               });
-
+  g = skill
+  g2 = notes
   init(skill, notes);
 });
 
