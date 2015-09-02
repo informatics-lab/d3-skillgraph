@@ -81,13 +81,13 @@
 
 var lineDuration = 4000;
 
-var strokeColors = ["steelblue", "red"];
+var strokeColors = ["steelblue","red","green","yellow"];
 
 var margin = {top: 20, right: 20, bottom: 30, left: 50},
     width = 960 - margin.left - margin.right,
     height = 500 - margin.top - margin.bottom;
 
-var parseDate = d3.time.format("%Y%m").parse;
+var parseDate = d3.time.format("%Y%m%d0000").parse;
 
 // domains for x and y being set after data load
 var x = d3.time.scale()
@@ -119,36 +119,50 @@ var svg = d3.select("body").append("svg")
 var radiobuttons = d3.select("body").append("form").attr("id", "radiobuttons");
 
 queue()
-    .defer(d3.tsv, "skilldata.tsv") // topojson polygons
-    .defer(d3.tsv, "skilldata2.tsv") // geojson points
+    .defer(d3.csv, "data/Met_Office-Anl.csv")
+    .defer(d3.csv, "data/ECMWF_EC-Anl.csv")
+    //.defer(d3.csv, "data/BoM_AU_UM_partner-Anl.csv") 
+    //.defer(d3.csv, "data/KMA_KO_UM_partner-Anl.csv")
+    //.defer(d3.tsv, "skilldata.tsv") 
+    //.defer(d3.tsv, "skilldata2.tsv")
     .await(mkSkillObjects); // function that uses files
 
 function processData(data) {
   data.forEach(function(d) {
-    d.date = parseDate(d.date);
-    d.skill = +d.nwpindex;
-    delete d.nwpindex;
+    d.date = parseDate(d.Datetime);
+    d.skill = +d.Value;
+    delete d.Datetime;
+    delete d.Value;
+    delete d.Parameter;
+    delete d.Statistic;
+    delete d.Area;
   });
 }
 
 function mkSkillObjects(error, data1, data2) {
+//function mkSkillObjects(error, data1, data2, data3, data4) {
   if (error) throw error;
 
   datasets = [data1, data2];
   for (var i=0; i<datasets.length; i++){
+    console.log(datasets[i].length);
+    datasets[i].filter(function(e){
+      return (!e.Value==="nan");
+    });
+    console.log(datasets[i].length);
     processData(datasets[i]);
   }
   
-  main([data1, data2]);
+  main(datasets);
 }
 
 
 function main(datasets) {
   var skill = datasets[0];
   var combined = [].concat.apply([], datasets);
-  var notes = [{"date": parseDate("201208"), "html": "<p>some stuff about things</p>"},
-               {"date": parseDate("201302"), "html": "<p>some other stuff</p>"}];
-  var notesByModel = [notes, []];
+  var notes = [{"date": parseDate("201208010000"), "html": "<p>some stuff about things</p>"},
+               {"date": parseDate("201302010000"), "html": "<p>some other stuff</p>"}];
+  var notesByModel = [notes, [] ];
 
   
   x.domain(d3.extent(combined, function(d) { return d.date; }));
