@@ -232,7 +232,7 @@ function main(datasets) {
       .data(skillsets)
       .transition()
         .attr('d', function(d, i){console.log(i);return lineFunction(d)})
-        .each(function(d,i){console.log(i);updateNotes(skillsets, notes)})
+        .each(function(d,i){updateNotes(skillsets, notes)})
 
     svg.selectAll("path.skill")
       .data(skillsets)
