@@ -15,6 +15,11 @@
         stroke: steelblue;
         stroke-width: 1.5px;
       }
+      .skill {
+        stroke: steelblue;
+        stroke-width: 1.5px;
+        fill: none;
+      }
       #skill {
         stroke: steelblue;
         stroke-width: 1.5px;
@@ -61,6 +66,7 @@
     <meta charset="utf-8">
     <title>Global NWP Index</title>
     <script src="./d3.js"></script>
+    <script src="./queue.min.js"></script>
   </head>
 
 
@@ -68,6 +74,8 @@
 <script type="text/javascript">
 
 var lineDuration = 4000;
+
+var strokeColors = ["steelblue", "red"];
 
 var margin = {top: 20, right: 20, bottom: 30, left: 50},
     width = 960 - margin.left - margin.right,
@@ -104,22 +112,41 @@ var svg = d3.select("body").append("svg")
 
 var radiobuttons = d3.select("body").append("form").attr("id", "radiobuttons");
 
-d3.tsv("skilldata.tsv", function(error, data) {
-  if (error) throw error;
-  
+queue()
+    .defer(d3.tsv, "skilldata.tsv") // topojson polygons
+    .defer(d3.tsv, "skilldata2.tsv") // geojson points
+    .await(mkSkillObjects); // function that uses files
+
+function processData(data) {
   data.forEach(function(d) {
     d.date = parseDate(d.date);
     d.skill = +d.nwpindex;
     delete d.nwpindex;
   });
+}
 
-  var skill = data;
+function mkSkillObjects(error, data1, data2) {
+  if (error) throw error;
+
+  datasets = [data1, data2];
+  for (var i=0; i<datasets.length; i++){
+    processData(datasets[i]);
+  }
+  
+  main([data1, data2]);
+}
+
+
+function main(datasets) {
+  var skill = datasets[0];
+  var combined = [].concat.apply([], datasets);
   var notes = [{"date": parseDate("201208"), "html": "<p>some stuff about things</p>"},
-               {"date": parseDate("201302"), "html": "<p>some other stuff</p>"}]
+               {"date": parseDate("201302"), "html": "<p>some other stuff</p>"}];
+  var notesByModel = [notes, []];
 
   
-  x.domain(d3.extent(skill, function(d) { return d.date; }));
-  y.domain(d3.extent(skill, function(d) { return d.skill; }));
+  x.domain(d3.extent(combined, function(d) { return d.date; }));
+  y.domain(d3.extent(combined, function(d) { return d.skill; }));
   var ptfromt = d3.time
                   .scale()
                   .range([0, skill.length-1.0])
@@ -188,24 +215,24 @@ d3.tsv("skilldata.tsv", function(error, data) {
           .remove()
   };
 
-  var updateAxes = function(skill){
-      ptfromt = d3.time
-                  .scale()
-                  .range([0, skill.length-1.0])
-                  .domain(d3.extent(skill, function(d) { return d.date; }));
-      x.domain(d3.extent(skill, function(d) { return d.date; }));
-      y.domain(d3.extent(skill, function(d) { return d.skill; }));
-  };
+  var update = function(skillsets, notes, callback){
+    if (!callback) {callback = function(){}};
 
-  var enterSkill = function(skill, notes){
-    svg.append("path")
-          .attr("id", "skill")
-          .datum(skill)
-          .attr("d", "")
-        .transition()
-          .duration(lineDuration)
+    svg.selectAll("path.skill")
+      .data(skillsets)
+      .attr('d', function(d){return lineFunction(d)})
+
+    svg.selectAll("path.skill")
+      .data(skillsets)
+      .enter().append("path")
+      .attr("class", "path skill")
+      .attr("id", "skill")
+      .attr("d", "")
+      .style("stroke", function(d,i){return strokeColors[i]})
+      .transition()
+        .duration(lineDuration)
           .ease("linear")
-          .attrTween('d', function(d, i){return rollingLine(d, i, notes)})
+          .attrTween('d', function(d, i){return rollingLine(d, i, notesByModel[i])})
           .each("end", function(){
             tooltips=[];
             updateTooltips(tooltips)
@@ -218,58 +245,15 @@ d3.tsv("skilldata.tsv", function(error, data) {
                 tooltips.pop();
                 updateTooltips(tooltips)
               })
+              .call(callback)
             })
+
+    //svg.selectAll("path.skill").data(skillsets).exit().remove()
+
+
   };
 
-  var update = function(skill, notes){
-    var removeNotesTrans = svg.transition().duration(500);
-    removeNotesTrans.selectAll(".note")
-                      .attr("r", 0)
-    var zeroLineTrans = removeNotesTrans.transition()
-    zeroLineTrans
-          .ease("sin-in-out")
-          .select("#skill")
-          .attr("d", function(d){
-            return lineFunction(
-              d.map(function(el){return {"date": el.date, "skill": y.domain()[0]};})
-            )
-          })
-    updateAxes(skill)
-    var updateAxesTrans = zeroLineTrans.transition()
-    updateAxesTrans.select(".x.axis")
-                  .ease("sin-in-out")
-                  .call(xAxis); 
-    updateAxesTrans.select(".y.axis")
-                  .transition()
-                  .ease("sin-in-out")
-                  .call(yAxis);
-    updateAxesTrans
-        .each("end", function(d){
-          d3.select("#skill")
-            .datum(skill)
-            .attr("d", function(d){
-              return lineFunction(d.map(function(el) {return {"date": el.date, "skill": y.domain()[0]};}))
-            })
-          d3.selectAll(".note")
-            .attr("cx", function(d){return x(d.date)})
-            .attr("cy", function(d){
-              if (Math.floor(ptfromt(d.date)) < skill.length){
-                return y(skill[Math.floor(ptfromt(d.date))].skill);
-              }else{
-                return "";
-              }
-            })
-          })
-    var updateLineTrans = updateAxesTrans.transition()
-    updateLineTrans.select("#skill")
-                      .ease("sin-in-out")
-                      .attr("d", lineFunction(skill))
-    var updateNotesTrans = updateLineTrans.transition()
-    updateNotesTrans.selectAll(".note")
-          .attr("r", 5)
-  };
-
-  var updateNotes = function(skill, notes){
+  var updateNotes = function(skillsets, notes){
     note = svg.selectAll(".note").data(notes, function(d){return d.date});
     note.enter()
         .append("circle")
@@ -295,33 +279,33 @@ d3.tsv("skilldata.tsv", function(error, data) {
 
   var tooltips = [];
 
-  var init = function(skill, notes){
-    enterSkill(skill, notes);
+  var init = function(skillsets, notes){
+    var showdiv = function() {
+      d3.select("body")
+      .append("div") 
+          .attr("class", "tooltip show")
+          .attr("id", "continue")
+          .html("<p>Click to continue</p>")
+          .style("left", "50%")          
+          .style("top", "50%")
+          .style("display", "block")
+          .style("z-index", "1000")
+          .on("click", function(){
+            d3.select("body").select("#continue").remove();
+            update(skillsets, notes);
+          })
+          .classed("show", true)
+    }
+
+    update([skillsets[0]], notes, showdiv);
+    
+
   };
 
-  skills = [{"name": "a", "skill": skill},
-            {"name": "b", "skill": skill.slice(0, 10)},
-            {"name": "c", "skill": skill.slice(10, 30)}];
-  var radiobutton = radiobuttons.selectAll(".radiobutton").data(skills)
-  var checked = 0;
-  radiobutton.enter()
-              .append("label")
-              .text(function(d) {return d.name;})
-              .insert("input")
-              .attr({
-                  type: "radio",
-                  class: "shape",
-                  name: "mode",
-                  value: function(d, i) {return i;}
-              })
-              .property("checked", function(d, i) {return i===checked;})
-              .on("click", function(d){
-                update(d.skill, notes);
-              });
   g = skill
   g2 = notes
-  init(skill, notes);
-});
+  init(datasets, notes);
+};
 
 </script>
 </body>
