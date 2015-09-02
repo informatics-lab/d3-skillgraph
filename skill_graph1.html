@@ -79,9 +79,7 @@
 <body>
 <script type="text/javascript">
 
-var lineDuration = 4000;
-
-var strokeColors = ["steelblue","red","green","yellow"];
+var lineDuration = 8000;
 
 var margin = {top: 20, right: 20, bottom: 30, left: 50},
     width = 960 - margin.left - margin.right,
@@ -118,39 +116,39 @@ var svg = d3.select("body").append("svg")
 
 var radiobuttons = d3.select("body").append("form").attr("id", "radiobuttons");
 
-queue()
-    .defer(d3.csv, "data/Met_Office-Anl.csv")
-    .defer(d3.csv, "data/ECMWF_EC-Anl.csv")
-    //.defer(d3.csv, "data/BoM_AU_UM_partner-Anl.csv") 
-    //.defer(d3.csv, "data/KMA_KO_UM_partner-Anl.csv")
-    //.defer(d3.tsv, "skilldata.tsv") 
-    //.defer(d3.tsv, "skilldata2.tsv")
-    .await(mkSkillObjects); // function that uses files
+var monotes = [{"date": parseDate("201208010000"), "html": "<p>some stuff about things</p>"},
+               {"date": parseDate("201302010000"), "html": "<p>some other stuff</p>"}];
+var dwdnotes = [{'date': parseDate('201401010000'), 'html':'<p>boo</p>'}]
+var centers = [
+    {'center':'Met Office', 'file':'data/Met_Office-Anl_norm.csv', 'notes':monotes, 'colour':"steelblue"},
+    {'center':'ECMWF', 'file':'data/ECMWF_EC-Anl_norm.csv', 'notes':[], 'colour':"red"},
+    {'center':'JMA', 'file':"data/JMA_JA-Anl_norm.csv", 'notes':[], 'colour':"green"},
+    {'center':'DWD', 'file':"data/DWD_GE-Anl_norm.csv", 'notes':[], 'colour':"yellow"},
+];
 
-function processData(data) {
+var q = queue();
+for (var i=0; i<centers.length; i++){
+  q.defer(d3.csv, centers[i].file)
+}
+  q.awaitAll(mkSkillObjects);
+
+function processData(data, index) {
   data.forEach(function(d) {
     d.date = parseDate(d.Datetime);
     d.skill = +d.Value;
+    d.center = centers[index].center;
+    d.notes = centers[index].notes;
+    d.colour = centers[index].colour;
     delete d.Datetime;
     delete d.Value;
-    delete d.Parameter;
-    delete d.Statistic;
-    delete d.Area;
   });
 }
 
-function mkSkillObjects(error, data1, data2) {
-//function mkSkillObjects(error, data1, data2, data3, data4) {
+function mkSkillObjects(error, datasets) {
   if (error) throw error;
 
-  datasets = [data1, data2];
   for (var i=0; i<datasets.length; i++){
-    console.log(datasets[i].length);
-    datasets[i].filter(function(e){
-      return (!e.Value==="nan");
-    });
-    console.log(datasets[i].length);
-    processData(datasets[i]);
+    processData(datasets[i], i);
   }
   
   main(datasets);
@@ -158,19 +156,14 @@ function mkSkillObjects(error, data1, data2) {
 
 
 function main(datasets) {
-  var skill = datasets[0];
   var combined = [].concat.apply([], datasets);
-  var notes = [{"date": parseDate("201208010000"), "html": "<p>some stuff about things</p>"},
-               {"date": parseDate("201302010000"), "html": "<p>some other stuff</p>"}];
-  var notesByModel = [notes, [] ];
-
   
   x.domain(d3.extent(combined, function(d) { return d.date; }));
   y.domain(d3.extent(combined, function(d) { return d.skill; }));
   var ptfromt = d3.time
                   .scale()
-                  .range([0, skill.length-1.0])
-                  .domain(d3.extent(skill, function(d) { return d.date; }));
+                  .range([0, datasets[0].length-1.0])
+                  .domain(d3.extent(datasets[0], function(d) { return d.date; }));
 
 
   svg.append("g")
@@ -235,7 +228,7 @@ function main(datasets) {
           .remove()
   };
 
-  var update = function(skillsets, notes, callback){
+  var update = function(skillsets, callback){
     if (!callback) {callback = function(){}};
     var combined = [].concat.apply([], skillsets);
 
@@ -246,7 +239,7 @@ function main(datasets) {
       .data(skillsets)
       .transition()
         .attr('d', function(d, i){console.log(i);return lineFunction(d)})
-        .each(function(d,i){updateNotes(skillsets, notes)})
+        .each(function(d,i){updateNotes(d, centers[i].notes)})
 
     svg.selectAll("path.skill")
       .data(skillsets)
@@ -254,11 +247,11 @@ function main(datasets) {
       .attr("class", "path skill")
       .attr("id", "skill")
       .attr("d", "")
-      .style("stroke", function(d,i){return strokeColors[i]})
+      .style("stroke", function(d,i){return centers[i].colour})
       .transition()
         .duration(lineDuration)
           .ease("linear")
-          .attrTween('d', function(d, i){return rollingLine(d, i, notesByModel[i])})
+          .attrTween('d', function(d, i){return rollingLine(d, i, centers[i].notes)})
           .each("end", function(){
             tooltips=[];
             updateTooltips(tooltips)
@@ -292,7 +285,7 @@ function main(datasets) {
 
   };
 
-  var updateNotes = function(skillsets, notes){
+  var updateNotes = function(skill, notes){
     note = svg.selectAll(".note").data(notes, function(d){return d.date});
     note.enter()
         .append("circle")
@@ -318,7 +311,7 @@ function main(datasets) {
 
   var tooltips = [];
 
-  var init = function(skillsets, notes){
+  var init = function(skillsets){
     var showdiv = function() {
       d3.select("body")
       .append("div") 
@@ -331,19 +324,17 @@ function main(datasets) {
           .style("z-index", "1000")
           .on("click", function(){
             d3.select("body").select("#continue").remove();
-            update(skillsets, notes);
+            update(skillsets);
           })
           .classed("show", true)
     }
 
-    update([skillsets[0]], notes, showdiv);
+    update([skillsets[0]], showdiv);
     
 
   };
 
-  g = skill
-  g2 = notes
-  init(datasets, notes);
+  init(datasets);
 };
 
 </script>
