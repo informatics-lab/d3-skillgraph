@@ -20,6 +20,12 @@
         stroke-width: 1.5px;
         fill: none;
       }
+      .hover {
+        stroke: black;
+        stroke-width: 10px;
+        fill: black;
+        opacity: 0.1;
+      }
       #skill {
         stroke: steelblue;
         stroke-width: 1.5px;
@@ -217,10 +223,16 @@ function main(datasets) {
 
   var update = function(skillsets, notes, callback){
     if (!callback) {callback = function(){}};
+    var combined = [].concat.apply([], skillsets);
+
+    x.domain(d3.extent(combined, function(d) { return d.date; }));
+    y.domain(d3.extent(combined, function(d) { return d.skill; }));
 
     svg.selectAll("path.skill")
       .data(skillsets)
-      .attr('d', function(d){return lineFunction(d)})
+      .transition()
+        .attr('d', function(d, i){console.log(i);return lineFunction(d)})
+        .each(function(d,i){console.log(i);updateNotes(skillsets, notes)})
 
     svg.selectAll("path.skill")
       .data(skillsets)
@@ -239,11 +251,24 @@ function main(datasets) {
             d3.selectAll(".note")
               .on("mouseover", function(d){
                 tooltips.push({"html": d.html, "x": d3.event.pageX, "y": d3.event.pageY});
-                updateTooltips(tooltips)
+                updateTooltips(tooltips);
+                svg
+                .append("path")
+                .attr('id', "hover")
+                .attr("class", "path hover")
+                .attr('d',
+                  lineFunction([
+                                  {"date": d.date, "skill": d3.min(combined, function(d){return d.skill})},
+                                  {"date": d.date, "skill": d3.max(combined, function(d){return d.skill})}
+                                ])
+                )
               })
               .on("mouseout", function(d){
+                // if (Math.abs(d3.mouse(this)[0] - d3.event.target.cx.baseVal.value) > 0.5){
+                // }
                 tooltips.pop();
                 updateTooltips(tooltips)
+                svg.select("#hover").remove();
               })
               .call(callback)
             })
