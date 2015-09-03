@@ -150,8 +150,7 @@ var svg = d3.select("body").append("svg")
 
 var radiobuttons = d3.select("body").append("form").attr("id", "radiobuttons");
 
-var monotes = [{"date": parseDate("201208010000"), "html": "<p>some stuff about things</p>"},
-               {"date": parseDate("201302010000"), "html": "<p>some other stuff</p>"}];
+var monotes = [{"date": parseDate("201408010000"), "html": "<p>ENDGame introduced</p>"}];
 var dwdnotes = [{'date': parseDate('201401010000'), 'html':'<p>boo</p>'}]
 var centers = [
     {'center':'Met Office', 'file':'data/Met_Office-Anl_norm.csv', 'notes':monotes, 'colour':"steelblue"},
@@ -327,6 +326,8 @@ function main(datasets) {
           .attr("cx", function(d){return x(d.date)})
           .attr("cy", function(d){return y(skill[Math.floor(ptfromt(d.date))].skill)})
           .attr("r", 0)
+          // .style("fill", "red")
+          // .style("stroke", "black")
         .transition()
           .attr("r", 5)
           .each(function(d){
@@ -340,7 +341,7 @@ function main(datasets) {
       .attr("cy", function(d){return y(skill[Math.floor(ptfromt(d.date))].skill)})
       .attr("r", 5)
 
-    note.exit().remove();
+    //note.exit().remove();
   };
 
   var tooltips = [];
